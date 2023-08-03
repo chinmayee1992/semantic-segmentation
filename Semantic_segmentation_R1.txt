@@ -1,0 +1,133 @@
+!pip --version
+
+import torch
+torch.__version__
+
+# for mxnet
+!pip install --upgrade mxnet -f https://dist.mxnet.io/python/all
+
+# for pytorch
+!pip install torch==1.11.0+cpu torchvision==0.12.0+cpu torchaudio==0.11.0 --extra-index-url https://download.pytorch.org/whl/cpu
+
+import torch
+torch.__version__
+
+!pip install --pre --upgrade gluoncv
+
+import gluoncv
+
+import mxnet as mx
+from mxnet import image
+from mxnet.gluon.data.vision import transforms
+from matplotlib import pyplot as plt
+import os
+from gluoncv.data.transforms.presets.segmentation import test_transform
+from gluoncv.utils.viz import get_color_pallete
+import matplotlib.image as mpimg
+from gluoncv.utils import TrainingHistory
+
+dir_path = r'/content/sample_data'
+count = 0
+# Iterate directory
+for path in os.listdir(dir_path):
+    # check if current path is a file
+    if os.path.isfile(os.path.join(dir_path, path)):
+        count += 1
+print('File count:', count)
+
+model = gluoncv.model_zoo.get_model('psp_resnet101_ade', pretrained=True)
+ctx = mx.cpu(0)
+cwd = os.getcwd()
+print("Current working directory: {0}".format(os.getcwd()))
+
+
+
+dir=os.chdir('/content/sample_data')
+folder_data=(os.listdir(dir))
+for i in range(0,len(folder_data)):
+     if '.jpg' in folder_data[i]:
+       
+          print(folder_data[i])
+          img = image.imread(folder_data[i])
+          plt.imshow(img.asnumpy())
+          plt.show()
+          img = test_transform(img, ctx)
+          output = model.predict(img)
+          #print(output.labels)
+          predict = mx.nd.squeeze(mx.nd.argmax(output, 1)).asnumpy()
+          mask = get_color_pallete(predict, 'ade20k')
+          print(mask)
+          folder_data[i]=folder_data[i].replace(".jpg","")
+          output_name=folder_data[i] + "_out.png"
+          mask.save('/content/sample_data/output/' +  output_name)
+          mmask = mpimg.imread('/content/sample_data/output/' +  output_name)
+          plt.imshow(mmask)
+          plt.show()
+import pandas as pd
+df=pd.read_csv('/content/sample_data/color_code.csv')
+lst=list(df['Name'])
+lst.insert(0, "filename")
+df1 = pd.DataFrame(columns=lst)
+print(df1)
+import numpy
+import os
+import pandas as pd
+
+try:
+    from PIL import Image
+except ImportError:
+    exit("This script requires the PIL module. Install with pip install Pillow")
+try:
+    import webcolors
+except ImportError:
+    # https://pypi.org/project/webcolors/
+    exit("This script uses webcolors for displaying named colors. Install with pip install webcolors")
+count1=0
+for root, dirs, files in os.walk('/content/sample_data/output/'):
+      for file in files:
+       count1=count1+1       
+       pixelcount=0 
+       print("\n")
+       print(file)
+       print(root)
+       if '.png' in file:
+        df1.loc[count1 - 1, 'filename'] = file 
+        with Image.open(root + '/' +file) as image:
+          color_count = {}
+          width, height = image.size
+          rgb_image = image.convert('RGB')
+
+        # iterate through each pixel in the image and keep a count per unique color
+          for x in range(width):
+            for y in range(height):
+                rgb = rgb_image.getpixel((x, y))
+
+                if rgb in color_count:
+                    color_count[rgb] += 1
+                else:
+                    color_count[rgb] = 1
+
+          print('Pixel Count per Unique Color:')
+          print('-' * 30)
+          color_index = 1
+          for color, count in color_count.items():
+            pixelcount=pixelcount+count
+          for color, count in color_count.items():
+              #actual_name, closest_name = get_colour_name(color)
+              #print(color, closest_name, count)
+              dfb=list(df['Color_Code'])
+              try:
+                index = dfb.index(str(color))
+              except ValueError:
+                index = -1
+              if index != -1:
+                   color_index += 1
+                   name=(df.iloc[index]['Name'])
+              if name is not None:
+               df1.iloc[count1-1][name] = float(count/pixelcount)*100
+
+              #spike_cols = [col for col in df1.columns if closest_name in col]
+
+              #
+          # if color == args.ignore-color:
+df1.to_csv('/content/sample_data/output/' +'data_output' + '.csv')
